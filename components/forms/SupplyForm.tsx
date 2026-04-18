@@ -76,7 +76,7 @@ export default function SupplyForm({ existing, onSuccess, onCancel }: SupplyForm
         </div>
         <div>
           <label className={labelClass}>Valor ($)</label>
-          <input type="number" required min="1" step="100" value={form.amount} onChange={(e) => handleChange('amount', e.target.value)} className={inputClass} />
+          <input type="number" required min="0" step="any" value={form.amount} onChange={(e) => handleChange('amount', e.target.value)} className={inputClass} />
         </div>
       </div>
       <div>
