@@ -10,8 +10,8 @@ export interface BusinessSettings {
   business_name: string
   primary_color: string
   partners_count: number
-  worker_1_name: string
-  worker_2_name: string
+  owner_1_name: string
+  owner_2_name: string
   created_at: string
   updated_at: string
 }
@@ -61,17 +61,33 @@ export interface ExtraExpense {
   updated_at: string
 }
 
-// --- Nómina semanal ---
-export interface WeeklyPayroll {
+// --- Ganancia diaria repartida ---
+export interface DailyProfitDistribution {
   id: string
-  week_start: string
-  week_end: string
-  worker_1_name: string
-  worker_1_payment: number
-  worker_2_name: string
-  worker_2_payment: number
-  total_payroll: number
+  date: string
+  owner_1_name: string
+  owner_1_amount: number
+  owner_2_name: string
+  owner_2_amount: number
+  total_distribution: number
   notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+// --- Movimientos de base diaria ---
+export type CashBaseMovementType =
+  | 'base_aporte'
+  | 'base_retiro'
+  | 'asignacion_surtido'
+  | 'asignacion_ganancia'
+
+export interface CashBaseMovement {
+  id: string
+  date: string
+  movement_type: CashBaseMovementType
+  amount: number
+  description: string
   created_at: string
   updated_at: string
 }
@@ -86,10 +102,13 @@ export interface WeeklySummary {
   total_sales: number
   total_supplies: number
   total_extra_expenses: number
-  total_payroll: number
-  weekly_utility: number
-  partner_gain: number
-  partners_count: number
+  operational_balance: number
+  base_contributions: number
+  base_withdrawals: number
+  assigned_to_supplies: number
+  assigned_to_profit: number
+  distributed_profit: number
+  base_available: number
 }
 
 export interface MonthlySummary {
@@ -98,10 +117,13 @@ export interface MonthlySummary {
   total_sales: number
   total_supplies: number
   total_extra_expenses: number
-  total_payroll: number
-  monthly_utility: number
-  partner_gain: number
-  partners_count: number
+  operational_balance: number
+  base_contributions: number
+  base_withdrawals: number
+  assigned_to_supplies: number
+  assigned_to_profit: number
+  distributed_profit: number
+  base_available: number
 }
 
 export interface DailyCashSummary {
@@ -132,7 +154,8 @@ export interface BusinessAlert {
 export type DailySalesFormData = Omit<DailySales, 'id' | 'created_at' | 'updated_at'>
 export type SupplyFormData = Omit<Supply, 'id' | 'created_at' | 'updated_at'>
 export type ExtraExpenseFormData = Omit<ExtraExpense, 'id' | 'created_at' | 'updated_at'>
-export type WeeklyPayrollFormData = Omit<WeeklyPayroll, 'id' | 'created_at' | 'updated_at'>
+export type DailyProfitDistributionFormData = Omit<DailyProfitDistribution, 'id' | 'created_at' | 'updated_at'>
+export type CashBaseMovementFormData = Omit<CashBaseMovement, 'id' | 'created_at' | 'updated_at'>
 export type BusinessSettingsFormData = Omit<BusinessSettings, 'id' | 'created_at' | 'updated_at'>
 
 // ============================================================
@@ -162,10 +185,15 @@ export interface Database {
         Insert: Omit<ExtraExpense, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<ExtraExpense, 'id' | 'created_at' | 'updated_at'>>
       }
-      weekly_payroll: {
-        Row: WeeklyPayroll
-        Insert: Omit<WeeklyPayroll, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<WeeklyPayroll, 'id' | 'created_at' | 'updated_at'>>
+      daily_profit_distribution: {
+        Row: DailyProfitDistribution
+        Insert: Omit<DailyProfitDistribution, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<DailyProfitDistribution, 'id' | 'created_at' | 'updated_at'>>
+      }
+      cash_base_movements: {
+        Row: CashBaseMovement
+        Insert: Omit<CashBaseMovement, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<CashBaseMovement, 'id' | 'created_at' | 'updated_at'>>
       }
     }
   }

@@ -14,8 +14,8 @@ create table if not exists public.business_settings (
   business_name  text not null default 'Delicias Leto',
   primary_color  text not null default '#16a34a',
   partners_count integer not null default 2 check (partners_count > 0),
-  worker_1_name  text not null default 'Trabajador 1',
-  worker_2_name  text not null default 'Trabajador 2',
+  owner_1_name   text not null default 'Brayan',
+  owner_2_name   text not null default 'Leidy',
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
@@ -72,26 +72,39 @@ create table if not exists public.extra_expenses (
 create index if not exists idx_extra_expenses_date on public.extra_expenses(date desc);
 
 -- ============================================================
--- TABLA: weekly_payroll
+-- TABLA: daily_profit_distribution
 -- ============================================================
-create table if not exists public.weekly_payroll (
+create table if not exists public.daily_profit_distribution (
   id                uuid primary key default uuid_generate_v4(),
-  week_start        date not null,
-  week_end          date not null,
-  worker_1_name     text not null,
-  worker_1_payment  numeric(10,2) not null check (worker_1_payment >= 0),
-  worker_2_name     text not null,
-  worker_2_payment  numeric(10,2) not null check (worker_2_payment >= 0),
-  total_payroll     numeric(10,2) not null generated always as (
-                      worker_1_payment + worker_2_payment
+  date              date not null unique,
+  owner_1_name      text not null default 'Brayan',
+  owner_1_amount    numeric(10,2) not null check (owner_1_amount >= 0),
+  owner_2_name      text not null default 'Leidy',
+  owner_2_amount    numeric(10,2) not null check (owner_2_amount >= 0),
+  total_distribution numeric(10,2) not null generated always as (
+                      owner_1_amount + owner_2_amount
                     ) stored,
   notes             text,
   created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now(),
-  constraint chk_week_order check (week_end >= week_start)
+  updated_at        timestamptz not null default now()
 );
 
-create index if not exists idx_weekly_payroll_week_start on public.weekly_payroll(week_start desc);
+create index if not exists idx_daily_profit_distribution_date on public.daily_profit_distribution(date desc);
+
+-- ============================================================
+-- TABLA: cash_base_movements
+-- ============================================================
+create table if not exists public.cash_base_movements (
+  id            uuid primary key default uuid_generate_v4(),
+  date          date not null,
+  movement_type text not null check (movement_type in ('base_aporte', 'base_retiro', 'asignacion_surtido', 'asignacion_ganancia')),
+  amount        numeric(10,2) not null check (amount > 0),
+  description   text not null,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists idx_cash_base_movements_date on public.cash_base_movements(date desc);
 
 -- ============================================================
 -- FUNCIÓN: updated_at automático
@@ -121,8 +134,12 @@ create trigger trg_extra_expenses_updated_at
   before update on public.extra_expenses
   for each row execute function public.set_updated_at();
 
-create trigger trg_payroll_updated_at
-  before update on public.weekly_payroll
+create trigger trg_daily_profit_distribution_updated_at
+  before update on public.daily_profit_distribution
+  for each row execute function public.set_updated_at();
+
+create trigger trg_cash_base_movements_updated_at
+  before update on public.cash_base_movements
   for each row execute function public.set_updated_at();
 
 -- ============================================================
@@ -132,7 +149,8 @@ alter table public.business_settings enable row level security;
 alter table public.daily_sales enable row level security;
 alter table public.supplies enable row level security;
 alter table public.extra_expenses enable row level security;
-alter table public.weekly_payroll enable row level security;
+alter table public.daily_profit_distribution enable row level security;
+alter table public.cash_base_movements enable row level security;
 
 -- Políticas: solo usuarios autenticados tienen acceso completo
 create policy "authenticated full access" on public.business_settings
@@ -147,7 +165,10 @@ create policy "authenticated full access" on public.supplies
 create policy "authenticated full access" on public.extra_expenses
   for all using (auth.role() = 'authenticated');
 
-create policy "authenticated full access" on public.weekly_payroll
+create policy "authenticated full access" on public.daily_profit_distribution
+  for all using (auth.role() = 'authenticated');
+
+create policy "authenticated full access" on public.cash_base_movements
   for all using (auth.role() = 'authenticated');
 
 -- ============================================================
@@ -171,11 +192,10 @@ select
   coalesce(sum(ds.total_sales), 0)        as total_sales,
   coalesce(sum_sup.total_supplies, 0)      as total_supplies,
   coalesce(sum_exp.total_extra, 0)         as total_extra_expenses,
-  coalesce(wp.total_payroll, 0)            as total_payroll,
+  coalesce(wp.total_distribution, 0)       as total_distribution,
   coalesce(sum(ds.total_sales), 0)
     - coalesce(sum_sup.total_supplies, 0)
-    - coalesce(sum_exp.total_extra, 0)
-    - coalesce(wp.total_payroll, 0)        as weekly_utility
+    - coalesce(sum_exp.total_extra, 0)     as weekly_utility
 from weeks w
 left join public.daily_sales ds
   on ds.date between w.week_start and w.week_end
@@ -190,11 +210,11 @@ left join (
   group by 1
 ) sum_exp on sum_exp.ws = w.week_start
 left join (
-  select date_trunc('week', week_start)::date as ws, sum(total_payroll) as total_payroll
-  from public.weekly_payroll
+  select date_trunc('week', date)::date as ws, sum(total_distribution) as total_distribution
+  from public.daily_profit_distribution
   group by 1
 ) wp on wp.ws = w.week_start
-group by w.week_start, w.week_end, sum_sup.total_supplies, sum_exp.total_extra, wp.total_payroll
+group by w.week_start, w.week_end, sum_sup.total_supplies, sum_exp.total_extra, wp.total_distribution
 order by w.week_start desc;
 
 -- ============================================================
@@ -205,7 +225,7 @@ returns table (
   total_sales          numeric,
   total_supplies       numeric,
   total_extra_expenses numeric,
-  total_payroll        numeric,
+  total_distribution   numeric,
   monthly_utility      numeric
 ) as $$
 declare
@@ -217,18 +237,18 @@ begin
     coalesce((select sum(total_sales) from public.daily_sales where date between v_start and v_end), 0),
     coalesce((select sum(amount) from public.supplies where date between v_start and v_end), 0),
     coalesce((select sum(amount) from public.extra_expenses where date between v_start and v_end), 0),
-    coalesce((select sum(total_payroll) from public.weekly_payroll where week_start between v_start and v_end), 0),
+    coalesce((select sum(total_distribution) from public.daily_profit_distribution where date between v_start and v_end), 0),
     0::numeric -- placeholder, calculado en app
   ;
   -- Actualizar monthly_utility en el resultado
   return query
-  select ts, tsu, te, tp, (ts - tsu - te - tp) as mu
+  select ts, tsu, te, td, (ts - tsu - te) as mu
   from (
     select
       coalesce((select sum(total_sales) from public.daily_sales where date between v_start and v_end), 0) as ts,
       coalesce((select sum(amount) from public.supplies where date between v_start and v_end), 0) as tsu,
       coalesce((select sum(amount) from public.extra_expenses where date between v_start and v_end), 0) as te,
-      coalesce((select sum(total_payroll) from public.weekly_payroll where week_start between v_start and v_end), 0) as tp
+      coalesce((select sum(total_distribution) from public.daily_profit_distribution where date between v_start and v_end), 0) as td
   ) sub;
 end;
 $$ language plpgsql;

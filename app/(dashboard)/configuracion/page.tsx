@@ -44,8 +44,8 @@ export default function ConfiguracionPage() {
       .update({
         business_name: settings.business_name,
         partners_count: settings.partners_count,
-        worker_1_name: settings.worker_1_name,
-        worker_2_name: settings.worker_2_name,
+        owner_1_name: settings.owner_1_name,
+        owner_2_name: settings.owner_2_name,
       })
       .eq('id', settings.id)
 
@@ -100,30 +100,30 @@ export default function ConfiguracionPage() {
             </div>
           </div>
 
-          {/* Nombres default de nómina */}
+          {/* Dueños */}
           <div className="space-y-4 pt-4">
-            <h2 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2">Plantilla de Nómina</h2>
+            <h2 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2">Dueños del negocio</h2>
             <div>
-              <label className={labelClass}>Nombre Trabajador 1 (por defecto)</label>
+              <label className={labelClass}>Dueño 1</label>
               <input
                 type="text"
                 required
-                value={settings.worker_1_name}
-                onChange={(e) => handleChange('worker_1_name', e.target.value)}
+                value={settings.owner_1_name}
+                onChange={(e) => handleChange('owner_1_name', e.target.value)}
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Nombre Trabajador 2 (por defecto)</label>
+              <label className={labelClass}>Dueño 2</label>
               <input
                 type="text"
                 required
-                value={settings.worker_2_name}
-                onChange={(e) => handleChange('worker_2_name', e.target.value)}
+                value={settings.owner_2_name}
+                onChange={(e) => handleChange('owner_2_name', e.target.value)}
                 className={inputClass}
               />
             </div>
-            <p className="text-xs text-gray-500">Estos nombres aparecerán precargados al registrar una nueva nómina semanal.</p>
+            <p className="text-xs text-gray-500">Estos nombres identifican a quienes reciben la ganancia del negocio.</p>
           </div>
 
           <div className="pt-2">

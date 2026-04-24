@@ -1,6 +1,6 @@
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { ExpenseCategory } from '@/types/database'
+import type { CashBaseMovementType, ExpenseCategory } from '@/types/database'
 
 // --- Formateo de fechas ---
 
@@ -55,6 +55,20 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   'servicios',
   'limpieza',
   'otros',
+]
+
+export const BASE_MOVEMENT_LABELS: Record<CashBaseMovementType, string> = {
+  base_aporte: 'Aporte a base',
+  base_retiro: 'Retiro de base',
+  asignacion_surtido: 'Asignado a surtido',
+  asignacion_ganancia: 'Asignado a ganancia',
+}
+
+export const BASE_MOVEMENT_OPTIONS: CashBaseMovementType[] = [
+  'base_aporte',
+  'base_retiro',
+  'asignacion_surtido',
+  'asignacion_ganancia',
 ]
 
 // --- CSV Export ---

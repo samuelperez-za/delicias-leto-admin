@@ -4,16 +4,15 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SummaryCard from '@/components/ui/SummaryCard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { formatCOP, buildMonthlySummary, getProfitabilityAnalysis } from '@/lib/calculations'
+import { formatCOP, buildMonthlySummary } from '@/lib/calculations'
 import { formatMonthYear, exportToCSV } from '@/lib/utils'
-import type { DailySales, Supply, ExtraExpense, WeeklyPayroll } from '@/types/database'
+import type { CashBaseMovement, DailyProfitDistribution, DailySales, Supply, ExtraExpense } from '@/types/database'
 
 export default function ResumenMensualPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState<ReturnType<typeof buildMonthlySummary> | null>(null)
-  const [partners, setPartners] = useState(2)
 
   async function fetchSummary() {
     setLoading(true)
@@ -23,29 +22,26 @@ export default function ResumenMensualPage() {
 
     const supabase = createClient()
     const [
-      { data: settings },
       { data: sales },
       { data: supplies },
       { data: expenses },
-      { data: payrolls },
+      { data: distributions },
+      { data: baseMovements },
     ] = await Promise.all([
-      supabase.from('business_settings').select('partners_count').limit(1).single(),
       supabase.from('daily_sales').select('*').gte('date', startStr).lte('date', endStr),
       supabase.from('supplies').select('*').gte('date', startStr).lte('date', endStr),
       supabase.from('extra_expenses').select('*').gte('date', startStr).lte('date', endStr),
-      supabase.from('weekly_payroll').select('*').gte('week_start', startStr).lte('week_start', endStr),
+      supabase.from('daily_profit_distribution').select('*').gte('date', startStr).lte('date', endStr),
+      supabase.from('cash_base_movements').select('*').gte('date', startStr).lte('date', endStr),
     ])
-
-    const pc = (settings as any)?.partners_count ?? 2
-    setPartners(pc)
 
     const sum = buildMonthlySummary(
       year, month,
       (sales as DailySales[]) ?? [],
       (supplies as Supply[]) ?? [],
       (expenses as ExtraExpense[]) ?? [],
-      (payrolls as WeeklyPayroll[]) ?? [],
-      pc
+      (distributions as DailyProfitDistribution[]) ?? [],
+      (baseMovements as CashBaseMovement[]) ?? []
     )
     setSummary(sum)
     setLoading(false)
@@ -62,16 +58,17 @@ export default function ResumenMensualPage() {
         'Total Ventas': summary.total_sales,
         'Total Surtidos': summary.total_supplies,
         'Gastos Extras': summary.total_extra_expenses,
-        'Mano de Obra': summary.total_payroll,
-        'Utilidad Mensual': summary.monthly_utility,
-        'Socios': summary.partners_count,
-        'Ganancia por Socio': summary.partner_gain,
+        'Ganancia Repartida': summary.distributed_profit,
+        'Resultado Operativo': summary.operational_balance,
+        'Aportes Base': summary.base_contributions,
+        'Retiros Base': summary.base_withdrawals,
+        'Asignado a Surtido': summary.assigned_to_supplies,
+        'Asignado a Ganancia': summary.assigned_to_profit,
+        'Base Disponible': summary.base_available,
       }
     ]
     exportToCSV(data, `resumen-mensual-${year}-${month}`)
   }
-
-  const profitability = summary ? getProfitabilityAnalysis(summary) : null
 
   function renderPct(value: number, total: number) {
     if (total === 0) return '—'
@@ -131,46 +128,36 @@ export default function ResumenMensualPage() {
             <SummaryCard title="Ventas del mes" value={formatCOP(summary.total_sales)} icon="💰" variant="green" />
             <SummaryCard title="Surtido del mes" value={formatCOP(summary.total_supplies)} icon="📦"
               subtitle={`${renderPct(summary.total_supplies, summary.total_sales)} de ventas`} />
-            <SummaryCard title="Gastos extras" value={formatCOP(summary.total_extra_expenses)} icon="💸"
-              subtitle={`${renderPct(summary.total_extra_expenses, summary.total_sales)} de ventas`} />
-            <SummaryCard title="Mano de obra" value={formatCOP(summary.total_payroll)} icon="👷"
-              subtitle={`${renderPct(summary.total_payroll, summary.total_sales)} de ventas`} />
+              <SummaryCard title="Gastos extras" value={formatCOP(summary.total_extra_expenses)} icon="💸"
+                subtitle={`${renderPct(summary.total_extra_expenses, summary.total_sales)} de ventas`} />
+            <SummaryCard title="Ganancia repartida" value={formatCOP(summary.distributed_profit)} icon="💼"
+              subtitle="Reparto registrado para Brayan y Leidy" />
             <SummaryCard
-              title="Utilidad mensual"
-              value={formatCOP(summary.monthly_utility)}
+              title="Resultado operativo"
+              value={formatCOP(summary.operational_balance)}
               icon="📊"
-              variant={summary.monthly_utility < 0 ? 'red' : 'green'}
-              subtitle={`${renderPct(summary.monthly_utility, summary.total_sales)} de las ventas`}
+              variant={summary.operational_balance < 0 ? 'red' : 'green'}
+              subtitle="Ventas - surtido - gastos"
             />
-            <SummaryCard
-              title={`Ganancia por socio (${partners})`}
-              value={formatCOP(summary.partner_gain)}
-              icon="🤝"
-              variant={summary.partner_gain >= 0 ? 'green' : 'red'}
-            />
-          </div>
-
-          {/* Rentabilidad */}
-          {profitability && (
-            <div className="mt-4 bg-white border border-gray-200 rounded-xl p-5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Desempeño mensual</p>
-              <div className="flex items-center gap-3">
-                <span className={`text-sm font-bold px-3 py-1 rounded-full ${
-                  profitability.color === 'red' ? 'bg-red-100 text-red-700' :
-                  profitability.color === 'orange' ? 'bg-orange-100 text-orange-700' :
-                  profitability.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-green-100 text-green-700'
-                }`}>
-                  {profitability.label}
-                </span>
-                <p className="text-sm text-gray-600">
-                  {summary.monthly_utility <= 0
-                    ? 'Mes con pérdidas o en punto de equilibrio.'
-                    : `La utilidad neta de este mes fue del ${renderPct(summary.monthly_utility, summary.total_sales)}.`}
-                </p>
-              </div>
+              <SummaryCard
+                title="Base disponible"
+                value={formatCOP(summary.base_available)}
+                icon="🏦"
+                variant={summary.base_available >= 0 ? 'green' : 'red'}
+              />
+              <SummaryCard
+                title="Asignado a surtido"
+                value={formatCOP(summary.assigned_to_supplies)}
+                icon="📦"
+                variant="yellow"
+              />
+              <SummaryCard
+                title="Asignado a ganancia"
+                value={formatCOP(summary.assigned_to_profit)}
+                icon="💼"
+                variant="blue"
+              />
             </div>
-          )}
         </section>
       )}
     </div>

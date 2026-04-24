@@ -4,11 +4,12 @@
 
 import type {
   BusinessAlert,
+  CashBaseMovement,
+  DailyProfitDistribution,
   DailySales,
   ExtraExpense,
   MonthlySummary,
   Supply,
-  WeeklyPayroll,
   WeeklySummary,
 } from '@/types/database'
 
@@ -16,9 +17,6 @@ import type {
 const THRESHOLDS = {
   SUPPLIES_HIGH: 0.60,       // Surtido > 60% de ventas → warning
   EXPENSES_HIGH: 0.20,       // Gastos extras > 20% → warning
-  PAYROLL_HIGH: 0.25,        // Mano de obra > 25% → warning
-  UTILITY_LOW_PCT: 0.15,     // Utilidad < 15% de ventas → caution
-  UTILITY_CRITICAL: 0,       // Utilidad <= 0 → critical
 } as const
 
 /**
@@ -55,31 +53,48 @@ export function calcTotalExtraExpenses(expenses: ExtraExpense[]): number {
 }
 
 /**
- * Calcula el total de nómina semanal.
+ * Calcula el total de ganancia repartida.
  */
-export function calcTotalPayroll(payrolls: WeeklyPayroll[]): number {
-  return payrolls.reduce((acc, p) => acc + Number(p.total_payroll), 0)
+export function calcTotalDistributedProfit(distributions: DailyProfitDistribution[]): number {
+  return distributions.reduce((acc, distribution) => acc + Number(distribution.total_distribution), 0)
 }
 
 /**
- * Calcula la utilidad semanal.
- * utilidad = ventas - surtidos - gastos_extras - mano_de_obra
+ * Calcula el resultado operativo.
+ * resultado = ventas - surtidos - gastos_extras
  */
-export function calcWeeklyUtility(
+export function calcOperationalBalance(
   totalSales: number,
   totalSupplies: number,
-  totalExtraExpenses: number,
-  totalPayroll: number
+  totalExtraExpenses: number
 ): number {
-  return totalSales - totalSupplies - totalExtraExpenses - totalPayroll
+  return totalSales - totalSupplies - totalExtraExpenses
 }
 
 /**
- * Calcula la ganancia por socio.
+ * Calcula el total de movimientos de base por tipo.
  */
-export function calcPartnerGain(utility: number, partnersCount: number): number {
-  if (partnersCount <= 0) return 0
-  return utility / partnersCount
+export function calcBaseMovementTotal(
+  movements: CashBaseMovement[],
+  movementType: CashBaseMovement['movement_type']
+): number {
+  return movements
+    .filter((movement) => movement.movement_type === movementType)
+    .reduce((acc, movement) => acc + Number(movement.amount), 0)
+}
+
+/**
+ * Calcula la base disponible según ventas y movimientos manuales.
+ */
+export function calcAvailableBase(
+  totalSales: number,
+  totalExtraExpenses: number,
+  contributions: number,
+  withdrawals: number,
+  assignedToSupplies: number,
+  assignedToProfit: number
+): number {
+  return totalSales + contributions - totalExtraExpenses - withdrawals - assignedToSupplies - assignedToProfit
 }
 
 /**
@@ -91,15 +106,26 @@ export function buildWeeklySummary(
   sales: DailySales[],
   supplies: Supply[],
   expenses: ExtraExpense[],
-  payrolls: WeeklyPayroll[],
-  partnersCount: number
+  distributions: DailyProfitDistribution[],
+  baseMovements: CashBaseMovement[]
 ): WeeklySummary {
   const totalSales = calcTotalSales(sales)
   const totalSupplies = calcTotalSupplies(supplies)
   const totalExtraExpenses = calcTotalExtraExpenses(expenses)
-  const totalPayroll = calcTotalPayroll(payrolls)
-  const weeklyUtility = calcWeeklyUtility(totalSales, totalSupplies, totalExtraExpenses, totalPayroll)
-  const partnerGain = calcPartnerGain(weeklyUtility, partnersCount)
+  const distributedProfit = calcTotalDistributedProfit(distributions)
+  const operationalBalance = calcOperationalBalance(totalSales, totalSupplies, totalExtraExpenses)
+  const baseContributions = calcBaseMovementTotal(baseMovements, 'base_aporte')
+  const baseWithdrawals = calcBaseMovementTotal(baseMovements, 'base_retiro')
+  const assignedToSupplies = calcBaseMovementTotal(baseMovements, 'asignacion_surtido')
+  const assignedToProfit = calcBaseMovementTotal(baseMovements, 'asignacion_ganancia')
+  const baseAvailable = calcAvailableBase(
+    totalSales,
+    totalExtraExpenses,
+    baseContributions,
+    baseWithdrawals,
+    assignedToSupplies,
+    assignedToProfit
+  )
 
   return {
     week_start: weekStart,
@@ -107,10 +133,13 @@ export function buildWeeklySummary(
     total_sales: totalSales,
     total_supplies: totalSupplies,
     total_extra_expenses: totalExtraExpenses,
-    total_payroll: totalPayroll,
-    weekly_utility: weeklyUtility,
-    partner_gain: partnerGain,
-    partners_count: partnersCount,
+    operational_balance: operationalBalance,
+    base_contributions: baseContributions,
+    base_withdrawals: baseWithdrawals,
+    assigned_to_supplies: assignedToSupplies,
+    assigned_to_profit: assignedToProfit,
+    distributed_profit: distributedProfit,
+    base_available: baseAvailable,
   }
 }
 
@@ -123,15 +152,26 @@ export function buildMonthlySummary(
   sales: DailySales[],
   supplies: Supply[],
   expenses: ExtraExpense[],
-  payrolls: WeeklyPayroll[],
-  partnersCount: number
+  distributions: DailyProfitDistribution[],
+  baseMovements: CashBaseMovement[]
 ): MonthlySummary {
   const totalSales = calcTotalSales(sales)
   const totalSupplies = calcTotalSupplies(supplies)
   const totalExtraExpenses = calcTotalExtraExpenses(expenses)
-  const totalPayroll = calcTotalPayroll(payrolls)
-  const monthlyUtility = calcWeeklyUtility(totalSales, totalSupplies, totalExtraExpenses, totalPayroll)
-  const partnerGain = calcPartnerGain(monthlyUtility, partnersCount)
+  const distributedProfit = calcTotalDistributedProfit(distributions)
+  const operationalBalance = calcOperationalBalance(totalSales, totalSupplies, totalExtraExpenses)
+  const baseContributions = calcBaseMovementTotal(baseMovements, 'base_aporte')
+  const baseWithdrawals = calcBaseMovementTotal(baseMovements, 'base_retiro')
+  const assignedToSupplies = calcBaseMovementTotal(baseMovements, 'asignacion_surtido')
+  const assignedToProfit = calcBaseMovementTotal(baseMovements, 'asignacion_ganancia')
+  const baseAvailable = calcAvailableBase(
+    totalSales,
+    totalExtraExpenses,
+    baseContributions,
+    baseWithdrawals,
+    assignedToSupplies,
+    assignedToProfit
+  )
 
   return {
     year,
@@ -139,10 +179,13 @@ export function buildMonthlySummary(
     total_sales: totalSales,
     total_supplies: totalSupplies,
     total_extra_expenses: totalExtraExpenses,
-    total_payroll: totalPayroll,
-    monthly_utility: monthlyUtility,
-    partner_gain: partnerGain,
-    partners_count: partnersCount,
+    operational_balance: operationalBalance,
+    base_contributions: baseContributions,
+    base_withdrawals: baseWithdrawals,
+    assigned_to_supplies: assignedToSupplies,
+    assigned_to_profit: assignedToProfit,
+    distributed_profit: distributedProfit,
+    base_available: baseAvailable,
   }
 }
 
@@ -152,31 +195,12 @@ export function buildMonthlySummary(
  */
 export function triggerAlerts(summary: WeeklySummary): BusinessAlert[] {
   const alerts: BusinessAlert[] = []
-  const { total_sales, total_supplies, total_extra_expenses, total_payroll, weekly_utility } = summary
+  const { total_sales, total_supplies, total_extra_expenses } = summary
 
   if (total_sales === 0) return alerts
 
   const suppliesRatio = total_supplies / total_sales
   const expensesRatio = total_extra_expenses / total_sales
-  const payrollRatio = total_payroll / total_sales
-  const utilityRatio = weekly_utility / total_sales
-
-  // Critical: pérdida o sin utilidad
-  if (weekly_utility <= THRESHOLDS.UTILITY_CRITICAL) {
-    alerts.push({
-      id: 'utility-critical',
-      severity: 'critical',
-      title: '🔴 Pérdida o utilidad cero',
-      description: `La utilidad semanal es $${formatCOP(weekly_utility)}. El negocio está perdiendo dinero esta semana.`,
-    })
-  } else if (utilityRatio < THRESHOLDS.UTILITY_LOW_PCT) {
-    alerts.push({
-      id: 'utility-low',
-      severity: 'warning',
-      title: '🟡 Utilidad baja',
-      description: `La utilidad semanal es solo el ${Math.round(utilityRatio * 100)}% de las ventas. Lo recomendable es mínimo 15%.`,
-    })
-  }
 
   // Surtido muy alto
   if (suppliesRatio > THRESHOLDS.SUPPLIES_HIGH) {
@@ -198,40 +222,7 @@ export function triggerAlerts(summary: WeeklySummary): BusinessAlert[] {
     })
   }
 
-  // Nómina alta
-  if (payrollRatio > THRESHOLDS.PAYROLL_HIGH) {
-    alerts.push({
-      id: 'payroll-high',
-      severity: 'info',
-      title: 'ℹ️ Mano de obra elevada',
-      description: `La nómina representa el ${Math.round(payrollRatio * 100)}% de las ventas (recomendado: máximo 25%).`,
-    })
-  }
-
   return alerts
-}
-
-/**
- * Analiza si el negocio está siendo rentable basado en un periodo.
- */
-export function getProfitabilityAnalysis(summary: WeeklySummary | MonthlySummary): {
-  label: string
-  color: string
-  description: string
-} {
-  const { weekly_utility, total_sales } = 'weekly_utility' in summary
-    ? { weekly_utility: summary.weekly_utility, total_sales: summary.total_sales }
-    : { weekly_utility: (summary as MonthlySummary).monthly_utility, total_sales: summary.total_sales }
-
-  if (total_sales === 0) return { label: 'Sin datos', color: 'gray', description: 'No hay ventas registradas.' }
-
-  const ratio = weekly_utility / total_sales
-
-  if (weekly_utility <= 0) return { label: 'Pérdida', color: 'red', description: 'El negocio está perdiendo dinero.' }
-  if (ratio < 0.10) return { label: 'Muy baja', color: 'orange', description: 'Utilidad menor al 10%. Revisar costos.' }
-  if (ratio < 0.20) return { label: 'Aceptable', color: 'yellow', description: 'Utilidad entre 10-20%. Puede mejorar.' }
-  if (ratio < 0.35) return { label: 'Buena', color: 'green', description: 'Utilidad entre 20-35%. Negocio saludable.' }
-  return { label: 'Excelente', color: 'brand', description: 'Utilidad mayor al 35%. Excelente desempeño.' }
 }
 
 // ============================================================

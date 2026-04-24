@@ -5,8 +5,8 @@
 -- ============================================================
 
 -- Configuración inicial
-insert into public.business_settings (business_name, primary_color, partners_count, worker_1_name, worker_2_name)
-values ('Delicias Leto', '#16a34a', 2, 'Carlos Pérez', 'Ana Gómez')
+insert into public.business_settings (business_name, primary_color, partners_count, owner_1_name, owner_2_name)
+values ('Delicias Leto', '#16a34a', 2, 'Brayan', 'Leidy')
 on conflict do nothing;
 
 -- ============================================================
@@ -71,10 +71,10 @@ values
   ('2025-04-24', 'empaques',   20000,  'Empaques semana festiva');
 
 -- ============================================================
--- NÓMINA SEMANAL — 3 semanas
+-- GANANCIA DIARIA — 3 registros
 -- ============================================================
-insert into public.weekly_payroll (week_start, week_end, worker_1_name, worker_1_payment, worker_2_name, worker_2_payment, notes)
+insert into public.daily_profit_distribution (date, owner_1_name, owner_1_amount, owner_2_name, owner_2_amount, notes)
 values
-  ('2025-04-07', '2025-04-13', 'Carlos Pérez', 120000, 'Ana Gómez', 120000, 'Semana 1 - normal'),
-  ('2025-04-14', '2025-04-20', 'Carlos Pérez', 120000, 'Ana Gómez', 120000, 'Semana 2 - pago regular'),
-  ('2025-04-21', '2025-04-27', 'Carlos Pérez', 130000, 'Ana Gómez', 130000, 'Semana 3 - bonificación por festivo');
+  ('2025-04-13', 'Brayan', 120000, 'Leidy', 120000, 'Reparto diario'),
+  ('2025-04-20', 'Brayan', 120000, 'Leidy', 120000, 'Reparto diario'),
+  ('2025-04-24', 'Brayan', 130000, 'Leidy', 130000, 'Reparto por festivo');

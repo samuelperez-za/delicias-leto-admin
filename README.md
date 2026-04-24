@@ -7,7 +7,7 @@ Permite llevar el registro diario de ventas, controlar surtidos, gastos extras y
 
 * **Registro Diario:** Registra las ventas por categoría (salchipapas, hamburguesas, picadas, gaseosas) y calcula automáticamente la caja neta del día.
 * **Control de Costos:** Sistema diferenciado para Surtidos y Gastos Extras permitiendo un control simple sin inventarios complejos.
-* **Nómina Semanal:** Registro ágil del pago para los dos trabajadores base.
+* **Ganancia Diaria:** Registro ágil del reparto diario para Brayan y Leidy.
 * **Alertas y Rentabilidad:** El sistema avisa si la utilidad está bajando, si el surtido consume más del 60% de las ventas, o si los gastos extra están por encima del 20%.
 * **Resúmenes Automáticos:** Fórmulas integradas que calculan la Utilidad Semanal, Útilidad Mensual y lo dividen automáticamente entre los socios configurados.
 

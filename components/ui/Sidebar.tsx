@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation'
 const NAV_ITEMS = [
   { href: '/dashboard',         label: 'Dashboard',         icon: '📊' },
   { href: '/ventas',            label: 'Ventas Diarias',    icon: '💰' },
+  { href: '/base-diaria',       label: 'Base Diaria',       icon: '🏦' },
   { href: '/surtidos',          label: 'Surtidos',          icon: '📦' },
   { href: '/gastos',            label: 'Gastos Extras',     icon: '💸' },
-  { href: '/nomina-semanal',    label: 'Nómina Semanal',    icon: '👷' },
+  { href: '/nomina-semanal',    label: 'Ganancia Diaria',   icon: '💼' },
   { href: '/resumen-semanal',   label: 'Resumen Semanal',   icon: '📅' },
   { href: '/resumen-mensual',   label: 'Resumen Mensual',   icon: '📆' },
   { href: '/configuracion',     label: 'Configuración',     icon: '⚙️' },
